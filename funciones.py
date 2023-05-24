@@ -22,10 +22,36 @@ def leer_csv(ruta:str) -> list:
             elemento = {"ID": linea[0], "NOMBRE": linea[1],"MARCA": linea[2], "PRECIO": precio, "CARACTERISTICAS": caracteristicas}
             lista_elementos.append(elemento)
         return lista_elementos
+     
+def leer_csv_marcas(ruta):
+    """recibe una ruta a un archivo, lo abre y devuelve una lista con las marcas separadas por el "\n"
+
+    Args:
+        ruta (_type_): ruta para leer marcas
+
+    Returns:
+        _type_: la lista con las marcas leidas
+    """
+    lista_retorno = []
+    with open(ruta, "r") as archivo:
+        for marca in archivo:
+            marca = marca.replace("\n", "").capitalize()
+            lista_retorno.append(marca)
+    return lista_retorno     
             
 def ingresar_str() -> str:
     str = input("Ingresa las caracteristicas a buscar: ")
     return str
+
+def mostrar_marcas(ruta):
+    """muestra las marcas que hay en el archivo de la ruta que se pasa por parametro
+
+    Args:
+        ruta (_type_): ruta para leer las marcas
+    """
+    marcas = leer_csv_marcas(ruta)
+    for marca in marcas:
+        imprimir_dato(marca)
 
 def mostrar_lista(lista:list, titulo:str):
     """muestra una lista
@@ -87,7 +113,9 @@ def imprimir_menu() -> None:
     imprimir_dato("| Opcion 7: Guardar en formato JSON                              |")
     imprimir_dato("| Opcion 8: Leer desde formato JSON                              |")
     imprimir_dato("| Opcion 9: Actualizar precios                                   |")
-    imprimir_dato("| Opcion 10: Salir del programa                                  |")
+    imprimir_dato("| Opcion 10: Agregar producto                                    |")
+    imprimir_dato("| Opcion 11: Guardar en archivo                                  |")
+    imprimir_dato("| Opcion 12: Salir del programa                                  |")
     imprimir_dato("°----------------------------------------------------------------°")
     
 def validar_entero(dato:str) -> bool:
@@ -96,12 +124,26 @@ def validar_entero(dato:str) -> bool:
     else:
         return False 
 
+def validar_numero(dato: str) -> bool:
+    """analiza un string y si es solo de numeros retorna True
+
+    Args:
+        dato (str): string para comprobar si es numerico
+
+    Returns:
+        bool: True es correcto, False no
+    """
+    if re.match("^\d+$", dato) or re.match("^\d+\.\d+$", dato):
+        return True
+    else:
+        return False
+
 def menu_principal():
     imprimir_menu()
     opcion = input("Ingrese una opcion: ")
     if validar_entero(opcion):
         opcion = int(opcion)
-        if opcion < 1 or opcion > 10:
+        if opcion < 1 or opcion > 12:
             print("ERROR. Opcion no valida")
         else:
             return opcion
@@ -111,14 +153,6 @@ def menu_principal():
 
 def insumos_menu_principal():
     bandera_1 = False
-    bandera_2 = False
-    bandera_3 = False
-    bandera_4 = False
-    bandera_5 = False
-    bandera_6 = False
-    bandera_7 = False
-    bandera_8 = False
-    bandera_9 = False
     while True:
         opcion = menu_principal()
         match(opcion):
@@ -167,6 +201,18 @@ def insumos_menu_principal():
                 else:
                     imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 10:
+                if bandera_1:
+                    nuevos_prod = agregar_nuevo_producto()
+                else:
+                    ("ERROR. Primero debes ingresar a la opcion 1.")
+            case 11:
+                if bandera_1:
+                    formato = input("Ingrese el formato que quieres guardar: 'csc' o 'json'")
+                    nombre_archivo = input("Ingrese el nombre que le quieres dar al archivo.")
+                    guardar_datos_actualizados(formato,nombre_archivo, lista_insumos)
+                else:
+                    ("ERROR. Primero debes ingresar a la opcion 1.")
+            case 12:
                 respuesta = input("Seguro que quieres salir? (s/n): ")
                 if respuesta == "s":
                     break
@@ -413,6 +459,62 @@ def actualizar_precios(ruta: str) -> None:
 
     print(f"Precios actualizados y guardados en el archivo {ruta}.")
 
+def agregar_nuevo_producto():
+    """permite al usuario agregar un nuevo producto, le solicita el ID, la marca, el nombre, el precio y las caracteristicas, pudiendo ingresar de estas un maximo de 3
 
+    Returns:
+        list: retorna una lista con los productos nuevos
+    """
+    while True:
+        id_nuevo = input("Ingrese un ID para el producto nuevo: ")
+        if validar_entero(id_nuevo):
+            id_existe = False
+            id_nuevo = int(id_nuevo)
+            for insumo in lista_insumos:
+                if id_nuevo == int(insumo["ID"]):
+                    id_existe = True
+                    break
+            if not id_existe:
+                print("ID ingresado")
+                nombre_nuevo = input("Ingrese un nombre para el producto: ").capitalize()
+                mostrar_marcas("marcas.txt")
+                while True:
+                    marca_nueva = input("Ahora ingrese una marca: ").capitalize()
+                    if marca_nueva in leer_csv_marcas("marcas.txt"):
+                        while True:
+                            precio_nuevo = input("Ingrese un precio válido: ")
+                            if validar_numero(precio_nuevo):
+                                break
+                            else:
+                                print("Precio inválido. Intente nuevamente.")
+                        caracteristicas_nuevas = []
+                        for i in range(3):
+                            caracteristica = input("Ingrese una característica del producto (o 'q' para finalizar): ").capitalize()
+                            if caracteristica.lower() == 'q':
+                                break
+                            caracteristicas_nuevas.append(caracteristica)
+                        producto_nuevo = {"ID": str(id_nuevo),"NOMBRE": nombre_nuevo, "MARCA": marca_nueva, "PRECIO": precio_nuevo, "CARACTERISTICAS": ",".join(caracteristicas_nuevas).split(",")}
+                        lista_insumos.append(producto_nuevo)
+                        print("Producto agregado con éxito.")
+                        return producto_nuevo
+                    else:
+                        print("Marca no válida. Ingrese una marca existente.")
+            else:
+                imprimir_dato("El ID ingresado ya existe.")
+        else:
+            imprimir_dato("ERROR. No ingreso un valor correcto.")
 
-
+def guardar_datos_actualizados(formato, nombre_archivo, lista):
+    if formato == "csv":
+        with open(nombre_archivo, "w", newline="", encoding="utf-8") as archivo:
+            encabezados = ["ID", "NOMBRE", "MARCA", "PRECIO", "CARACTERISTICAS"]
+            linea_encabezados = ",".join(encabezados) + "\n"
+            archivo.write(linea_encabezados)
+            for insumo in lista:
+                linea = f'{insumo["ID"]},{insumo["NOMBRE"]},{insumo["MARCA"]},${insumo["PRECIO"]},{",".join(insumo["CARACTERISTICAS"])}\n'
+                archivo.write(linea)
+        imprimir_dato("Datos guardados en formato CSV correctamente.")
+    elif formato == "json":
+        with open(nombre_archivo, "w", newline="", encoding="utf-8") as archivo:
+            json.dump(lista, archivo)
+            imprimir_dato("Datos guardados en formato JSON correctamente.")
