@@ -152,13 +152,24 @@ def menu_principal():
         return -1  
 
 def insumos_menu_principal():
+    lista_insumos = []
     bandera_1 = False
+    bandera_7 = False
     while True:
         opcion = menu_principal()
         match(opcion):
             case 1:
-                lista_insumos = leer_csv("C:\\Users\\lauta\\Desktop\\parcial_Labo\\insumos.csv")
-                bandera_1 = True
+                archivo = input("Ingrese el archivo para leer: ")
+                if not archivo:
+                    print("ERROR. El archivo esta vacio.")
+                elif not archivo.endswith(".csv"):
+                    print("ERROR: El archivo no es csv.")
+                else:
+                    try:
+                        lista_insumos = leer_csv(archivo)
+                        bandera_1 = True
+                    except FileNotFoundError:
+                        print("ERROR. No se encontró el archivo:", archivo)
             case 2:
                 if bandera_1:
                     mostrar_cant_por_marca(listar_cant_por_marca(lista_insumos))
@@ -187,28 +198,29 @@ def insumos_menu_principal():
                     imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 7:
                 if bandera_1:
-                    guardar_en_json_alimento(lista_insumos)            
+                    guardar_en_json_alimento(lista_insumos) 
+                    bandera_7 = True           
                 else:
                     imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 8:
-                if bandera_1:
-                    leer_json("productos_alimento.json")                
+                if bandera_7:
+                    leer_json("productos_alimento.json")
                 else:
-                    imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
+                    print("ERROR. Primero debes ingresar a la opcion 7.")
             case 9:
                 if bandera_1:
-                    actualizar_precios("insumos_copy.csv")
+                    actualizar_precios(archivo)
                 else:
                     imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 10:
                 if bandera_1:
-                    nuevos_prod = agregar_nuevo_producto()
+                    nuevos_prod = agregar_nuevo_producto(lista_insumos)
                 else:
-                    ("ERROR. Primero debes ingresar a la opcion 1.")
+                    imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 11:
                 if bandera_1:
-                    formato = input("Ingrese el formato que quieres guardar: 'csc' o 'json'")
-                    nombre_archivo = input("Ingrese el nombre que le quieres dar al archivo.")
+                    formato = input("Ingrese el formato que quieres guardar: 'csv' o 'json': ")
+                    nombre_archivo = input("Ingrese el nombre que le quieres dar al archivo: ")
                     guardar_datos_actualizados(formato,nombre_archivo, lista_insumos)
                 else:
                     ("ERROR. Primero debes ingresar a la opcion 1.")
@@ -459,50 +471,45 @@ def actualizar_precios(ruta: str) -> None:
 
     print(f"Precios actualizados y guardados en el archivo {ruta}.")
 
-def agregar_nuevo_producto():
+def agregar_nuevo_producto(lista:list):
     """permite al usuario agregar un nuevo producto, le solicita el ID, la marca, el nombre, el precio y las caracteristicas, pudiendo ingresar de estas un maximo de 3
 
     Returns:
         list: retorna una lista con los productos nuevos
     """
     while True:
-        id_nuevo = input("Ingrese un ID para el producto nuevo: ")
-        if validar_entero(id_nuevo):
-            id_existe = False
-            id_nuevo = int(id_nuevo)
-            for insumo in lista_insumos:
-                if id_nuevo == int(insumo["ID"]):
-                    id_existe = True
-                    break
-            if not id_existe:
-                print("ID ingresado")
-                nombre_nuevo = input("Ingrese un nombre para el producto: ").capitalize()
-                mostrar_marcas("marcas.txt")
+        
+        id_maximo = int(lista[0]["ID"])
+        for insumo in lista:
+            id_insumo = int(insumo["ID"])
+            if id_insumo > id_maximo:
+                id_maximo = id_insumo
+        
+        id_nuevo = id_maximo + 1
+        print("ID ingresado")
+        nombre_nuevo = input("Ingrese un nombre para el producto: ").capitalize()
+        mostrar_marcas("marcas.txt")
+        while True:
+            marca_nueva = input("Ahora ingrese una marca: ").capitalize()
+            if marca_nueva in leer_csv_marcas("marcas.txt"):
                 while True:
-                    marca_nueva = input("Ahora ingrese una marca: ").capitalize()
-                    if marca_nueva in leer_csv_marcas("marcas.txt"):
-                        while True:
-                            precio_nuevo = input("Ingrese un precio válido: ")
-                            if validar_numero(precio_nuevo):
-                                break
-                            else:
-                                print("Precio inválido. Intente nuevamente.")
-                        caracteristicas_nuevas = []
-                        for i in range(3):
-                            caracteristica = input("Ingrese una característica del producto (o 'q' para finalizar): ").capitalize()
-                            if caracteristica.lower() == 'q':
-                                break
-                            caracteristicas_nuevas.append(caracteristica)
-                        producto_nuevo = {"ID": str(id_nuevo),"NOMBRE": nombre_nuevo, "MARCA": marca_nueva, "PRECIO": precio_nuevo, "CARACTERISTICAS": ",".join(caracteristicas_nuevas).split(",")}
-                        lista_insumos.append(producto_nuevo)
-                        print("Producto agregado con éxito.")
-                        return producto_nuevo
+                    precio_nuevo = input("Ingrese un precio válido: ")
+                    if validar_numero(precio_nuevo):
+                        break
                     else:
-                        print("Marca no válida. Ingrese una marca existente.")
+                        print("Precio inválido. Intente nuevamente.")
+                caracteristicas_nuevas = []
+                for i in range(3):
+                    caracteristica = input("Ingrese una característica del producto (o 'q' para finalizar): ").capitalize()
+                    if caracteristica.lower() == 'q':
+                        break
+                    caracteristicas_nuevas.append(caracteristica)
+                producto_nuevo = {"ID": str(id_nuevo),"NOMBRE": nombre_nuevo, "MARCA": marca_nueva, "PRECIO": precio_nuevo, "CARACTERISTICAS": ",".join(caracteristicas_nuevas).split(",")}
+                lista.append(producto_nuevo)
+                print("Producto agregado con éxito.")
+                return producto_nuevo
             else:
-                imprimir_dato("El ID ingresado ya existe.")
-        else:
-            imprimir_dato("ERROR. No ingreso un valor correcto.")
+                print("Marca no válida. Ingrese una marca existente.")
 
 def guardar_datos_actualizados(formato, nombre_archivo, lista):
     if formato == "csv":
@@ -511,7 +518,8 @@ def guardar_datos_actualizados(formato, nombre_archivo, lista):
             linea_encabezados = ",".join(encabezados) + "\n"
             archivo.write(linea_encabezados)
             for insumo in lista:
-                linea = f'{insumo["ID"]},{insumo["NOMBRE"]},{insumo["MARCA"]},${insumo["PRECIO"]},{",".join(insumo["CARACTERISTICAS"])}\n'
+                caracteristicas = "~".join(insumo["CARACTERISTICAS"])
+                linea = f'{insumo["ID"]},{insumo["NOMBRE"]},{insumo["MARCA"]},${insumo["PRECIO"]},{caracteristicas}\n'
                 archivo.write(linea)
         imprimir_dato("Datos guardados en formato CSV correctamente.")
     elif formato == "json":
