@@ -2,6 +2,7 @@ import re
 import os
 import csv
 import json
+import random
 
 def leer_csv(ruta:str) -> list:
     """recibe la ruta de un archivo csv y lo lee, retornando una lista con un diccionario dentro con el contenido separado por comas
@@ -16,11 +17,7 @@ def leer_csv(ruta:str) -> list:
         lista_elementos = []
         lector_csv = csv.reader(archivo) 
         next(lector_csv) # Saltear el encabezado del archivo CSV 
-        for linea in lector_csv:
-            caracteristicas = linea[4].split("~")
-            precio = linea[3].replace("$", "")
-            elemento = {"ID": linea[0], "NOMBRE": linea[1],"MARCA": linea[2], "PRECIO": precio, "CARACTERISTICAS": caracteristicas}
-            lista_elementos.append(elemento)
+        lista_elementos = list(map(lambda fila: {'ID': int(fila[0]), 'NOMBRE': fila[1], 'MARCA': fila[2], 'PRECIO': float(fila[3].replace('$','')), 'CARACTERISTICAS': fila[4].split('~'), 'STOCK': random.randint(0,10)}, lector_csv))
         return lista_elementos
      
 def leer_csv_marcas(ruta):
@@ -115,7 +112,8 @@ def imprimir_menu() -> None:
     imprimir_dato("| Opcion 9: Actualizar precios                                   |")
     imprimir_dato("| Opcion 10: Agregar producto                                    |")
     imprimir_dato("| Opcion 11: Guardar en archivo                                  |")
-    imprimir_dato("| Opcion 12: Salir del programa                                  |")
+    imprimir_dato("| Opcion 12: Imprimir CSV stock bajo                             |")
+    imprimir_dato("| Opcion 13: Salir del programa                                  |")
     imprimir_dato("°----------------------------------------------------------------°")
     
 def validar_entero(dato:str) -> bool:
@@ -143,7 +141,7 @@ def menu_principal():
     opcion = input("Ingrese una opcion: ")
     if validar_entero(opcion):
         opcion = int(opcion)
-        if opcion < 1 or opcion > 12:
+        if opcion < 1 or opcion > 13:
             print("ERROR. Opcion no valida")
         else:
             return opcion
@@ -223,8 +221,13 @@ def insumos_menu_principal():
                     nombre_archivo = input("Ingrese el nombre que le quieres dar al archivo: ")
                     guardar_datos_actualizados(formato,nombre_archivo, lista_insumos)
                 else:
-                    ("ERROR. Primero debes ingresar a la opcion 1.")
+                    imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
             case 12:
+                if bandera_1:
+                    imprimir_bajo_stock(lista_insumos)
+                else:
+                    imprimir_dato("ERROR. Primero debes ingresar a la opcion 1.")
+            case 13:
                 respuesta = input("Seguro que quieres salir? (s/n): ")
                 if respuesta == "s":
                     break
@@ -277,11 +280,13 @@ def listar_insumos_por_marca(lista:list) -> dict:
         marca = elemento["MARCA"].capitalize()
         precio = elemento["PRECIO"]
         caracteristicas = elemento["CARACTERISTICAS"]
+        stock = elemento["STOCK"]
         insumo = {
             "ID": id_insumo,
             "NOMBRE": nombre,
             "PRECIO": precio,
-            "CARACTERISTICAS": caracteristicas
+            "CARACTERISTICAS": caracteristicas,
+            "STOCK": stock
         }
         if marca in dict_marcas:
             dict_marcas[marca].append(insumo)
@@ -393,18 +398,28 @@ def realizar_compras(lista:list) -> None:
                 id_compra = int(id_compra)
                 id_encontrado = False #bandera para el caso que el id no coincida con el de los insumos de X marca
                 for elemento in insumos: #recorro cada elemento de X marca
-                    id_producto = int(elemento["ID"])
+                    id_producto = int(elemento["ID"]) #se castea
+                    cantidad_stock = int(elemento["STOCK"]) #se castea
                     if id_compra == id_producto: #si el id coincide
                         id_encontrado = True #la bandera cambia a verdadera
-                        cantidad_compra = input("Por ultimo, ingrese la cantidad que quiere comprar: ") #pide la cantidad para comprar
-                        if validar_entero(cantidad_compra):
-                            cantidad_compra = int(cantidad_compra) #se castea
-                            precio = float(elemento["PRECIO"])
-                            subtotal = precio * cantidad_compra #en subtotal se guarda el monto de la ultima compra que realizó
-                            compra_realizada.append({"Producto": elemento["NOMBRE"], "Cantidad": cantidad_compra, "Subtotal": subtotal}) #se agregan a la lista los insumos comprados en un diccionario con respectivas keys
-                            imprimir_dato("Compra realizada.")
+                        if cantidad_stock == 0:
+                            print("No hay stock disponible para ese insumo.")
                         else:
-                            imprimir_dato("La cantidad ingresada no es correcta.")
+                            cantidad_compra = input("Por ultimo, ingrese la cantidad que quiere comprar: ") #pide la cantidad para comprar
+                            if validar_entero(cantidad_compra):
+                                cantidad_compra = int(cantidad_compra) #se castea
+                                
+                                while cantidad_compra > cantidad_stock:
+                                    print(f"ERROR. Actualmente solo queda un stock de: {cantidad_stock}")
+                                    cantidad_compra = int(input("Ingrese nuevamente la cantidad a comprar: "))
+                                else:
+                                    precio = float(elemento["PRECIO"])
+                                    subtotal = precio * cantidad_compra #en subtotal se guarda el monto de la ultima compra que realizó
+                                    compra_realizada.append({"Producto": elemento["NOMBRE"], "Cantidad": cantidad_compra, "Subtotal": subtotal}) #se agregan a la lista los insumos comprados en un diccionario con respectivas keys
+                                    imprimir_dato("Compra realizada.")
+                                    elemento["STOCK"] -= cantidad_compra
+                            else:
+                                imprimir_dato("La cantidad ingresada no es correcta.")
                 if not id_encontrado:
                     imprimir_dato("El ID ingresado no pertenece a ningun insumo")
             else:
@@ -526,3 +541,45 @@ def guardar_datos_actualizados(formato, nombre_archivo, lista):
         with open(nombre_archivo, "w", newline="", encoding="utf-8") as archivo:
             json.dump(lista, archivo)
             imprimir_dato("Datos guardados en formato JSON correctamente.")
+
+def mostrar_stock_por_marca(lista:list) -> None:
+    """muestra el stock de los insumos por marca
+
+    Args:
+        lista (list): lista de productos
+    """
+    marca_ingresada = input("Ingrese la marca para mostrar el stock: ").capitalize()
+    stock_total = 0
+    bandera_marca = False
+    
+    for insumo in lista:
+        if insumo["MARCA"] == marca_ingresada:
+            stock_total += insumo["STOCK"]
+            bandera_marca = True
+    if bandera_marca:
+        imprimir_dato(f"El stock total de los insumos de la marca {marca_ingresada} es de: {stock_total}")
+    else:
+        imprimir_dato("No se encontró esa marca.")
+        
+def imprimir_bajo_stock(lista:list) -> None:
+    """Imprime en un archivo CSV los productos con stock bajo (2 o menos unidades).
+
+    Args:
+        lista (list): Lista de productos.
+    """
+    insumos_bajo_stock = []
+    
+    for insumo in lista:
+        if insumo["STOCK"] <= 2:
+            insumos_bajo_stock.append(insumo)
+    if len(insumos_bajo_stock) > 0:
+        with open("bajo_stock.csv", "w", newline="", encoding="utf-8") as archivo_csv:
+            archivo_csv.write("Producto                         |   Stock\n")
+
+            for insumo in insumos_bajo_stock:
+                linea = f"{insumo['NOMBRE']:<24} | {insumo['STOCK']}\n"
+                archivo_csv.write(linea)
+                
+            imprimir_dato("Se generó el archivo 'bajo_stock.csv' con los productos con un stock menor a 2.")
+    else:
+        imprimir_dato("No hay insumos con stock menor a 2.")
